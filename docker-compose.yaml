@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+  web:
+    build: ./web
+    expose:
+      - "5000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/api`)"
+      - "traefik.http.services.web.loadbalancer.server.port=5000"
+    environment:
+      MONGO_HOST: mongo
+  mongo:
+    image: mongo:latest
+    expose:
+      - "27017"
+  gateway:
+    image: traefik:v2.4
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.mytlschallenge.acme.tlschallenge=true"
+      - "--certificatesresolvers.mytlschallenge.acme.email=${EMAIL_ADDRESS}"
+      - "--certificatesresolvers.mytlschallenge.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
+  user:
+    build: ./user
+    expose:
+      - "5000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/api/users`)"
+      - "traefik.http.services.user.loadbalancer.server.port=5000"
+    environment:
+      MONGO_HOST: mongo
+  reservation:
+    build: ./reservation
+    expose:
+      - "5000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.reservation.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/api/reservations`)"
+      - "traefik.http.services.reservation.loadbalancer.server.port=5000"
+    environment:
+      MONGO_HOST: mongo
